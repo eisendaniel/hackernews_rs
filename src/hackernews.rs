@@ -15,7 +15,7 @@ pub struct Hackernews {
 
 pub struct NewsCardData {
     pub title: String,
-    pub desc: String,
+    pub auth: String,
     pub url: String,
 }
 
@@ -25,18 +25,14 @@ impl Hackernews {
             .into_iter()
             .map(|i| NewsCardData {
                 title: format!("Title: {}", i),
-                desc: format!("Description: {}", i),
+                auth: format!("Description: {}", i),
                 url: format!("https:://example.com/{}", i),
             })
             .collect();
-        let config: AppConfig = confy::load("hackernews").unwrap_or_default();
 
-        Hackernews { stories, config }
-    }
-
-    fn save_config(&self) {
-        if let Err(e) = confy::store("hackernews", self.config) {
-            tracing::error!("{}", e);
+        Hackernews {
+            stories,
+            config: Default::default(),
         }
     }
 
@@ -74,23 +70,23 @@ impl Hackernews {
             let title = format!("▶ {}", card.title);
             ui.colored_label(
                 if self.config.dark_mode {
-                    egui::Color32::BLACK
-                } else {
                     egui::Color32::WHITE
+                } else {
+                    egui::Color32::BLACK
                 },
                 title,
             );
             // render desc
             ui.add_space(PADDING);
             let desc = egui::Label::new(
-                egui::RichText::new(&card.desc).text_style(egui::TextStyle::Button),
+                egui::RichText::new(&card.auth).text_style(egui::TextStyle::Button),
             );
             ui.add(desc);
 
             // render hyperlinks
 
             ui.add_space(PADDING);
-            ui.with_layout(egui::Layout::right_to_left(), |ui| {
+            ui.with_layout(egui::Layout::top_down(egui::Align::RIGHT), |ui| {
                 ui.add(egui::Hyperlink::from_label_and_url(
                     "read more ⤴",
                     &card.url,
@@ -109,32 +105,31 @@ impl Hackernews {
                 // logo
                 ui.with_layout(egui::Layout::left_to_right(), |ui| {
                     ui.add(egui::Label::new(
-                        egui::RichText::new("📓").text_style(egui::TextStyle::Heading),
+                        egui::RichText::new("ﬣ").text_style(egui::TextStyle::Heading),
                     ));
                 });
                 // controls
                 ui.with_layout(egui::Layout::right_to_left(), |ui| {
                     let close_btn = ui.add(egui::Button::new(
-                        egui::RichText::new("❌").text_style(egui::TextStyle::Body),
+                        egui::RichText::new("窱").text_style(egui::TextStyle::Body),
                     ));
                     if close_btn.clicked() {
                         frame.quit();
                     }
                     let _refresh_btn = ui.add(egui::Button::new(
-                        egui::RichText::new("🔄").text_style(egui::TextStyle::Body),
+                        egui::RichText::new("").text_style(egui::TextStyle::Body),
                     ));
                     let theme_btn = ui.add(egui::Button::new(
                         egui::RichText::new({
                             if self.config.dark_mode {
-                                "🌞"
+                                ""
                             } else {
-                                "🌙"
+                                ""
                             }
                         })
                         .text_style(egui::TextStyle::Body),
                     ));
                     if theme_btn.clicked() {
-                        self.save_config();
                         self.config.dark_mode = !self.config.dark_mode;
                     }
                 });

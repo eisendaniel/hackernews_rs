@@ -1,4 +1,5 @@
 mod hackernews;
+use firebase_rs::*;
 use hackernews::{Hackernews, PADDING};
 
 use eframe::{egui, epi};
@@ -6,13 +7,16 @@ use eframe::{egui, epi};
 impl epi::App for Hackernews {
     fn setup(
         &mut self,
-        ctx: &eframe::egui::CtxRef,
-        _frame: &eframe::epi::Frame,
-        _storage: Option<&dyn eframe::epi::Storage>,
+        ctx: &egui::CtxRef,
+        _frame: &epi::Frame,
+        storage: Option<&dyn epi::Storage>,
     ) {
+        if let Some(storage) = storage {
+            self.config = epi::get_value(storage, "hackernews").unwrap_or_default();
+        }
         self.configure_fonts(ctx);
     }
-    fn update(&mut self, ctx: &eframe::egui::CtxRef, frame: &eframe::epi::Frame) {
+    fn update(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
         if self.config.dark_mode {
             ctx.set_visuals(egui::Visuals::dark());
         } else {
@@ -28,6 +32,10 @@ impl epi::App for Hackernews {
         });
     }
 
+    fn save(&mut self, storage: &mut dyn epi::Storage) {
+        epi::set_value(storage, "hackernews", &self.config);
+    }
+
     fn name(&self) -> &str {
         "Hackernews"
     }
@@ -41,8 +49,50 @@ fn render_header(ui: &mut egui::Ui) {
     ui.add(egui::Separator::default().spacing(20.));
 }
 
+fn fetch_db() {
+    let db = Firebase::new("https://hacker-news.firebaseio.com/v0/").unwrap();
+    let topstories = db.at("topstories").unwrap();
+    let items = db.at("item").unwrap();
+
+    println!(
+        "Title: {}",
+        items
+            .at("8863")
+            .unwrap()
+            .at("title")
+            .unwrap()
+            .get()
+            .unwrap()
+            .body
+    );
+    println!(
+        "by: {}",
+        items
+            .at("8863")
+            .unwrap()
+            .at("by")
+            .unwrap()
+            .get()
+            .unwrap()
+            .body
+    );
+    println!(
+        "at: {}",
+        items
+            .at("8863")
+            .unwrap()
+            .at("url")
+            .unwrap()
+            .get()
+            .unwrap()
+            .body
+    );
+}
+
 fn main() {
     tracing_subscriber::fmt::init();
+
+    fetch_db();
 
     let app = Hackernews::new();
     let mut win_option = eframe::NativeOptions::default();
