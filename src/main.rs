@@ -1,5 +1,4 @@
 mod hackernews;
-use firebase_rs::*;
 use hackernews::{Hackernews, PADDING};
 
 use eframe::{egui, epi};
@@ -49,50 +48,8 @@ fn render_header(ui: &mut egui::Ui) {
     ui.add(egui::Separator::default().spacing(20.));
 }
 
-fn fetch_db() {
-    let db = Firebase::new("https://hacker-news.firebaseio.com/v0/").unwrap();
-    let topstories = db.at("topstories").unwrap();
-    let items = db.at("item").unwrap();
-
-    println!(
-        "Title: {}",
-        items
-            .at("8863")
-            .unwrap()
-            .at("title")
-            .unwrap()
-            .get()
-            .unwrap()
-            .body
-    );
-    println!(
-        "by: {}",
-        items
-            .at("8863")
-            .unwrap()
-            .at("by")
-            .unwrap()
-            .get()
-            .unwrap()
-            .body
-    );
-    println!(
-        "at: {}",
-        items
-            .at("8863")
-            .unwrap()
-            .at("url")
-            .unwrap()
-            .get()
-            .unwrap()
-            .body
-    );
-}
-
 fn main() {
     tracing_subscriber::fmt::init();
-
-    fetch_db();
 
     let app = Hackernews::new();
     let mut win_option = eframe::NativeOptions::default();

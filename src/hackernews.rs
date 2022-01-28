@@ -1,4 +1,6 @@
 use eframe::{egui, epi};
+use firebase_rs::*;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 pub const PADDING: f32 = 4.0;
@@ -21,12 +23,40 @@ pub struct NewsCardData {
 
 impl Hackernews {
     pub fn new() -> Hackernews {
-        let stories = (0..20)
-            .into_iter()
-            .map(|i| NewsCardData {
-                title: format!("Title: {}", i),
-                auth: format!("Description: {}", i),
-                url: format!("https:://example.com/{}", i),
+        let db = Firebase::new("https://hacker-news.firebaseio.com/v0/").unwrap();
+        let topstories = db.at("topstories").unwrap().get().unwrap().body;
+        let top_arr: Vec<u32> = serde_json::from_str(&topstories).unwrap();
+        let items = db.at("item").unwrap();
+        let stories = top_arr[0..20]
+            .into_par_iter()
+            .map(|id| NewsCardData {
+                title: items
+                    .at(&id.to_string())
+                    .unwrap()
+                    .at("title")
+                    .unwrap()
+                    .get()
+                    .unwrap()
+                    .body,
+                auth: format!(
+                    "by: {}",
+                    items
+                        .at(&id.to_string())
+                        .unwrap()
+                        .at("by")
+                        .unwrap()
+                        .get()
+                        .unwrap()
+                        .body
+                ),
+                url: items
+                    .at(&id.to_string())
+                    .unwrap()
+                    .at("url")
+                    .unwrap()
+                    .get()
+                    .unwrap()
+                    .body,
             })
             .collect();
 
