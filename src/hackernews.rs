@@ -1,6 +1,6 @@
 use eframe::{egui, epi};
-use firebase_rs::*;
-use rayon::prelude::*;
+use futures::future;
+use reqwest::Error;
 use serde::{Deserialize, Serialize};
 
 pub const PADDING: f32 = 4.0;
@@ -11,59 +11,52 @@ pub struct AppConfig {
 }
 
 pub struct Hackernews {
-    pub stories: Vec<NewsCardData>,
+    pub stories: Vec<Story>,
     pub config: AppConfig,
 }
+#[derive(Deserialize, Serialize, Debug)]
+pub struct Story {
+    by: String,
+    descendants: u32,
+    id: u32,
+    // kids: Vec<u32>,
+    score: u32,
+    // time: u64,
+    title: String,
+    // #[serde(alias = "type")]
+    // item_type: String,
+    url: String,
+}
 
-pub struct NewsCardData {
-    pub title: String,
-    pub auth: String,
-    pub url: String,
+async fn get_stories() -> Result<Vec<Story>, Error> {
+    let api_url = "https://hacker-news.firebaseio.com/v0";
+    let list_url = format!("{}/topstories.json", api_url);
+    let story_ids = reqwest::get(&list_url).await?.json::<Vec<u32>>().await?;
+
+    let story_resp = future::join_all(story_ids.into_iter().map(|id| async move {
+        let url = format!("{}/item/{}.json", api_url, id);
+        let resp = reqwest::get(&url).await?;
+        resp.json::<Story>().await
+    }))
+    .await;
+
+    Ok(story_resp
+        .into_iter()
+        .filter(|result| result.is_ok())
+        .map(|story| story.unwrap())
+        .collect::<Vec<Story>>())
 }
 
 impl Hackernews {
-    pub fn new() -> Hackernews {
-        let db = Firebase::new("https://hacker-news.firebaseio.com/v0/").unwrap();
-        let topstories = db.at("topstories").unwrap().get().unwrap().body;
-        let top_arr: Vec<u32> = serde_json::from_str(&topstories).unwrap();
-        let items = db.at("item").unwrap();
-        let stories = top_arr[0..20]
-            .into_par_iter()
-            .map(|id| NewsCardData {
-                title: items
-                    .at(&id.to_string())
-                    .unwrap()
-                    .at("title")
-                    .unwrap()
-                    .get()
-                    .unwrap()
-                    .body,
-                auth: format!(
-                    "by: {}",
-                    items
-                        .at(&id.to_string())
-                        .unwrap()
-                        .at("by")
-                        .unwrap()
-                        .get()
-                        .unwrap()
-                        .body
-                ),
-                url: items
-                    .at(&id.to_string())
-                    .unwrap()
-                    .at("url")
-                    .unwrap()
-                    .get()
-                    .unwrap()
-                    .body,
-            })
-            .collect();
-
+    pub async fn new() -> Hackernews {
         Hackernews {
-            stories,
+            stories: get_stories().await.unwrap(),
             config: Default::default(),
         }
+    }
+
+    pub fn refresh(&mut self) {
+        println!("TODO: refresh");
     }
 
     pub fn configure_fonts(&self, ctx: &egui::CtxRef) {
@@ -94,10 +87,12 @@ impl Hackernews {
         } else {
             egui::Color32::RED
         };
+        let mut index: u32 = 0;
         for card in &self.stories {
+            index += 1;
             ui.add_space(PADDING);
             // render title
-            let title = format!("▶ {}", card.title);
+            let title = format!("{}. ▶ {}", index, card.title);
             ui.colored_label(
                 if self.config.dark_mode {
                     egui::Color32::WHITE
@@ -106,22 +101,20 @@ impl Hackernews {
                 },
                 title,
             );
-            // render desc
             ui.add_space(PADDING);
-            let desc = egui::Label::new(
-                egui::RichText::new(&card.auth).text_style(egui::TextStyle::Button),
-            );
-            ui.add(desc);
-
-            // render hyperlinks
-
+            ui.add(egui::Label::new(
+                egui::RichText::new(format!("{} points by {}", &card.score, &card.by))
+                    .text_style(egui::TextStyle::Button),
+            ));
             ui.add_space(PADDING);
-            ui.with_layout(egui::Layout::top_down(egui::Align::RIGHT), |ui| {
-                ui.add(egui::Hyperlink::from_label_and_url(
-                    "read more ⤴",
-                    &card.url,
-                ));
-            });
+            ui.add(egui::Hyperlink::from_label_and_url(
+                "read more ⤴",
+                &card.url,
+            ));
+            ui.add(egui::Hyperlink::from_label_and_url(
+                format!("{} Comments", &card.descendants),
+                format!("https://news.ycombinator.com/item?id={}", &card.id),
+            ));
             ui.add_space(PADDING);
             ui.add(egui::Separator::default());
         }
@@ -146,9 +139,12 @@ impl Hackernews {
                     if close_btn.clicked() {
                         frame.quit();
                     }
-                    let _refresh_btn = ui.add(egui::Button::new(
+                    let refresh_btn = ui.add(egui::Button::new(
                         egui::RichText::new("").text_style(egui::TextStyle::Body),
                     ));
+                    if refresh_btn.clicked() {
+                        self.refresh();
+                    }
                     let theme_btn = ui.add(egui::Button::new(
                         egui::RichText::new({
                             if self.config.dark_mode {
