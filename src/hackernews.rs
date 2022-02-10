@@ -4,6 +4,8 @@ use reqwest::Error;
 use serde::{Deserialize, Serialize};
 
 pub const PADDING: f32 = 4.0;
+const N_STORIES: usize = 32;
+const N_MAX: usize = 500;
 
 #[derive(Serialize, Deserialize, Default, Clone, Copy)]
 pub struct AppConfig {
@@ -11,6 +13,7 @@ pub struct AppConfig {
 }
 
 pub struct Hackernews {
+    pub start: usize,
     pub stories: Vec<Story>,
     pub config: AppConfig,
 }
@@ -28,16 +31,18 @@ pub struct Story {
     url: String,
 }
 
-async fn get_stories() -> Result<Vec<Story>, Error> {
+async fn get_stories(start: usize) -> Result<Vec<Story>, Error> {
     let api_url = "https://hacker-news.firebaseio.com/v0";
     let list_url = format!("{}/topstories.json", api_url);
     let story_ids = reqwest::get(&list_url).await?.json::<Vec<u32>>().await?;
 
-    let story_resp = future::join_all(story_ids[0..50].into_iter().map(|id| async move {
-        let url = format!("{}/item/{}.json", api_url, id);
-        let resp = reqwest::get(&url).await?;
-        resp.json::<Story>().await
-    }))
+    let story_resp = future::join_all(story_ids[(start)..(start + N_STORIES)].iter().map(
+        |id| async move {
+            let url = format!("{}/item/{}.json", api_url, id);
+            let resp = reqwest::get(&url).await?;
+            resp.json::<Story>().await
+        },
+    ))
     .await;
 
     Ok(story_resp
@@ -49,21 +54,17 @@ async fn get_stories() -> Result<Vec<Story>, Error> {
 
 impl Hackernews {
     pub fn new() -> Hackernews {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let mut stories = Vec::new();
-        rt.block_on(async {
-            stories = get_stories().await.unwrap();
-        });
         Hackernews {
-            stories,
+            start: 0usize,
+            stories: Vec::new(),
             config: Default::default(),
         }
     }
 
-    pub fn refresh(&mut self) {
+    pub fn refresh_stories(&mut self) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            self.stories = get_stories().await.unwrap();
+            self.stories = get_stories(self.start).await.unwrap();
         });
     }
 
@@ -71,9 +72,7 @@ impl Hackernews {
         let mut font_def = egui::FontDefinitions::default();
         font_def.font_data.insert(
             "MesloLGS NF".to_string(),
-            egui::FontData::from_static(include_bytes!(
-                "/home/daniel/.local/share/fonts/MesloLGS NF Regular.ttf"
-            )),
+            egui::FontData::from_static(include_bytes!("../fonts/MesloLGS NF Regular.ttf")),
         );
         font_def
             .family_and_size
@@ -95,7 +94,7 @@ impl Hackernews {
         } else {
             egui::Color32::RED
         };
-        let mut index: u32 = 0;
+        let mut index = self.start;
         for card in &self.stories {
             index += 1;
             ui.add_space(PADDING);
@@ -131,34 +130,34 @@ impl Hackernews {
     pub fn render_top_panel(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
         // define a TopBottomPanel widget
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            ui.add_space(10.);
+            // ui.add_space(5.);
             egui::menu::bar(ui, |ui| {
                 // logo
                 ui.with_layout(egui::Layout::left_to_right(), |ui| {
                     ui.add(egui::Label::new(
-                        egui::RichText::new("ﬣ").text_style(egui::TextStyle::Heading),
+                        egui::RichText::new("ﬣ ").text_style(egui::TextStyle::Heading),
                     ));
                 });
                 // controls
                 ui.with_layout(egui::Layout::right_to_left(), |ui| {
                     let close_btn = ui.add(egui::Button::new(
-                        egui::RichText::new("窱").text_style(egui::TextStyle::Body),
+                        egui::RichText::new(" 窱 ").text_style(egui::TextStyle::Body),
                     ));
                     if close_btn.clicked() {
                         frame.quit();
                     }
                     let refresh_btn = ui.add(egui::Button::new(
-                        egui::RichText::new("").text_style(egui::TextStyle::Body),
+                        egui::RichText::new("  ").text_style(egui::TextStyle::Body),
                     ));
                     if refresh_btn.clicked() {
-                        self.refresh();
+                        self.refresh_stories();
                     }
                     let theme_btn = ui.add(egui::Button::new(
                         egui::RichText::new({
                             if self.config.dark_mode {
-                                ""
+                                "  "
                             } else {
-                                ""
+                                "  "
                             }
                         })
                         .text_style(egui::TextStyle::Body),
@@ -168,7 +167,41 @@ impl Hackernews {
                     }
                 });
             });
-            ui.add_space(10.);
+            ui.add_space(5.);
+        });
+    }
+
+    pub fn render_btm_panel(&mut self, ctx: &egui::CtxRef) {
+        egui::TopBottomPanel::bottom("btm_panel").show(ctx, |ui| {
+            ui.add_space(5.);
+            egui::menu::bar(ui, |ui| {
+                ui.with_layout(egui::Layout::left_to_right(), |ui| {
+                    let home_btn = ui.add(egui::Button::new(
+                        egui::RichText::new(" ﳐ ").text_style(egui::TextStyle::Heading),
+                    ));
+                    if home_btn.clicked() && self.start > 0 {
+                        self.start = 0usize;
+                        self.refresh_stories();
+                    }
+                });
+                ui.with_layout(egui::Layout::right_to_left(), |ui| {
+                    let next_btn = ui.add(egui::Button::new(
+                        egui::RichText::new("  ").text_style(egui::TextStyle::Body),
+                    ));
+                    if next_btn.clicked() && self.start + N_STORIES < N_MAX {
+                        self.start += N_STORIES;
+                        self.refresh_stories();
+                    }
+                    let prev_btn = ui.add(egui::Button::new(
+                        egui::RichText::new("  ").text_style(egui::TextStyle::Body),
+                    ));
+                    if prev_btn.clicked() && self.start >= N_STORIES {
+                        self.start -= N_STORIES;
+                        self.refresh_stories();
+                    }
+                });
+            });
+            ui.add_space(5.);
         });
     }
 }

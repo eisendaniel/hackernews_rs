@@ -1,6 +1,6 @@
 mod hackernews;
-use hackernews::{Hackernews, PADDING};
 use eframe::{egui, epi};
+use hackernews::{Hackernews, PADDING};
 
 impl epi::App for Hackernews {
     fn setup(
@@ -13,6 +13,7 @@ impl epi::App for Hackernews {
             self.config = epi::get_value(storage, "hackernews").unwrap_or_default();
         }
         self.configure_fonts(ctx);
+        self.refresh_stories();
     }
     fn update(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
         if self.config.dark_mode {
@@ -27,7 +28,11 @@ impl epi::App for Hackernews {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.render_news_cards(ui);
             });
+            ui.vertical_centered(|ui| {
+                ui.add_space(10.0);
+            });
         });
+        self.render_btm_panel(ctx);
     }
 
     fn save(&mut self, storage: &mut dyn epi::Storage) {
@@ -49,7 +54,9 @@ fn render_header(ui: &mut egui::Ui) {
 
 fn main() {
     let app = Hackernews::new();
-    let mut win_option = eframe::NativeOptions::default();
-    win_option.initial_window_size = Some(egui::Vec2::new(600., 800.));
+    let win_option = eframe::NativeOptions {
+        initial_window_size: Some(egui::Vec2::new(600., 800.)),
+        ..Default::default()
+    };
     eframe::run_native(Box::new(app), win_option);
 }
