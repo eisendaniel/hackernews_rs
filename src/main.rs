@@ -47,9 +47,8 @@ fn render_header(ui: &mut egui::Ui) {
     ui.add(egui::Separator::default().spacing(20.));
 }
 
-#[tokio::main]
-async fn main() {
-    let app = Hackernews::new().await;
+fn main() {
+    let app = Hackernews::new();
     let mut win_option = eframe::NativeOptions::default();
     win_option.initial_window_size = Some(egui::Vec2::new(600., 800.));
     eframe::run_native(Box::new(app), win_option);

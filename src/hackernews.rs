@@ -33,7 +33,7 @@ async fn get_stories() -> Result<Vec<Story>, Error> {
     let list_url = format!("{}/topstories.json", api_url);
     let story_ids = reqwest::get(&list_url).await?.json::<Vec<u32>>().await?;
 
-    let story_resp = future::join_all(story_ids.into_iter().map(|id| async move {
+    let story_resp = future::join_all(story_ids[0..50].into_iter().map(|id| async move {
         let url = format!("{}/item/{}.json", api_url, id);
         let resp = reqwest::get(&url).await?;
         resp.json::<Story>().await
@@ -48,15 +48,23 @@ async fn get_stories() -> Result<Vec<Story>, Error> {
 }
 
 impl Hackernews {
-    pub async fn new() -> Hackernews {
+    pub fn new() -> Hackernews {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let mut stories = Vec::new();
+        rt.block_on(async {
+            stories = get_stories().await.unwrap();
+        });
         Hackernews {
-            stories: get_stories().await.unwrap(),
+            stories,
             config: Default::default(),
         }
     }
 
     pub fn refresh(&mut self) {
-        println!("TODO: refresh");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            self.stories = get_stories().await.unwrap();
+        });
     }
 
     pub fn configure_fonts(&self, ctx: &egui::CtxRef) {
