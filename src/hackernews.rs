@@ -88,7 +88,7 @@ impl Hackernews {
         ctx.set_fonts(font_def);
     }
 
-    pub fn render_news_cards(&self, ui: &mut eframe::egui::Ui) {
+    pub fn render_news_cards(&mut self, ui: &mut eframe::egui::Ui) {
         ui.style_mut().visuals.hyperlink_color = if self.config.dark_mode {
             egui::Color32::LIGHT_BLUE
         } else {
@@ -125,6 +125,7 @@ impl Hackernews {
             ui.add_space(PADDING);
             ui.add(egui::Separator::default());
         }
+        self.render_btm_panel(ui);
     }
 
     pub fn render_top_panel(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
@@ -171,37 +172,35 @@ impl Hackernews {
         });
     }
 
-    pub fn render_btm_panel(&mut self, ctx: &egui::CtxRef) {
-        egui::TopBottomPanel::bottom("btm_panel").show(ctx, |ui| {
-            ui.add_space(5.);
-            egui::menu::bar(ui, |ui| {
-                ui.with_layout(egui::Layout::left_to_right(), |ui| {
-                    let home_btn = ui.add(egui::Button::new(
-                        egui::RichText::new(" ﳐ ").text_style(egui::TextStyle::Heading),
-                    ));
-                    if home_btn.clicked() && self.start > 0 {
-                        self.start = 0usize;
-                        self.refresh_stories();
-                    }
-                });
-                ui.with_layout(egui::Layout::right_to_left(), |ui| {
-                    let next_btn = ui.add(egui::Button::new(
-                        egui::RichText::new("  ").text_style(egui::TextStyle::Body),
-                    ));
-                    if next_btn.clicked() && self.start + N_STORIES < N_MAX {
-                        self.start += N_STORIES;
-                        self.refresh_stories();
-                    }
-                    let prev_btn = ui.add(egui::Button::new(
-                        egui::RichText::new("  ").text_style(egui::TextStyle::Body),
-                    ));
-                    if prev_btn.clicked() && self.start >= N_STORIES {
-                        self.start -= N_STORIES;
-                        self.refresh_stories();
-                    }
-                });
+    pub fn render_btm_panel(&mut self, ui: &mut eframe::egui::Ui) {
+        ui.add_space(5.);
+        egui::menu::bar(ui, |ui| {
+            ui.with_layout(egui::Layout::left_to_right(), |ui| {
+                let home_btn = ui.add(egui::Button::new(
+                    egui::RichText::new(" ﳐ ").text_style(egui::TextStyle::Heading),
+                ));
+                if home_btn.clicked() && self.start > 0 {
+                    self.start = 0usize;
+                    self.refresh_stories();
+                }
             });
-            ui.add_space(5.);
+            ui.with_layout(egui::Layout::right_to_left(), |ui| {
+                let next_btn = ui.add(egui::Button::new(
+                    egui::RichText::new("  ").text_style(egui::TextStyle::Body),
+                ));
+                if next_btn.clicked() && self.start + N_STORIES < N_MAX {
+                    self.start += N_STORIES;
+                    self.refresh_stories();
+                }
+                let prev_btn = ui.add(egui::Button::new(
+                    egui::RichText::new("  ").text_style(egui::TextStyle::Body),
+                ));
+                if prev_btn.clicked() && self.start >= N_STORIES {
+                    self.start -= N_STORIES;
+                    self.refresh_stories();
+                }
+            });
         });
+        ui.add_space(5.);
     }
 }

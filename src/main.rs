@@ -28,11 +28,7 @@ impl epi::App for Hackernews {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.render_news_cards(ui);
             });
-            ui.vertical_centered(|ui| {
-                ui.add_space(10.0);
-            });
         });
-        self.render_btm_panel(ctx);
     }
 
     fn save(&mut self, storage: &mut dyn epi::Storage) {
@@ -45,6 +41,7 @@ impl epi::App for Hackernews {
 }
 
 fn render_header(ui: &mut egui::Ui) {
+    ui.label("text");
     ui.vertical_centered(|ui| {
         ui.heading("Top Stories");
     });
