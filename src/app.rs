@@ -1,10 +1,10 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use eframe::egui;
+use eframe::{egui, epaint::Color32};
 use poll_promise::Promise;
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 enum Catagory {
     Top,
     New,
@@ -13,15 +13,7 @@ enum Catagory {
 
 impl std::fmt::Display for Catagory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Catagory::Top => "Top",
-                Catagory::New => "New",
-                Catagory::Best => "Best",
-            }
-        )
+        write!(f, "{:?}", self)
     }
 }
 
@@ -64,45 +56,48 @@ impl Card {
 
     fn draw(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         if let Some(result) = self.story_promise.ready_mut() {
-            match result {
-                Ok(story) => {
-                    let url = match &story.url {
-                        Some(url) => url.to_owned(),
-                        None => format!("https://news.ycombinator.com/item?id={}", self.id),
-                    };
-                    let url = url::Url::parse(&url).expect(&format!("{:?}", story.url));
+            if let Ok(story) = result {
+                let hn = format!("https://news.ycombinator.com/item?id={}", self.id);
+                let url = match &story.url {
+                    Some(url) => url.to_owned(),
+                    None => hn.clone(),
+                };
+                let url = url::Url::parse(&url).unwrap();
 
-                    ui.heading(&story.title);
-                    ui.horizontal(|ui| {
-                        ui.label(format!("{} points  ⚫", story.score));
-                        ui.hyperlink_to(url.domain().unwrap_or(url.as_str()), url.as_str());
-                        let mins = (SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .expect("Time Travel")
-                            .as_secs()
-                            - story.time)
-                            / 60;
-                        let when = if mins < 1 {
-                            "⚫  just now".into()
-                        } else if mins < 2 {
-                            "⚫  1 min".into()
-                        } else if mins < 60 {
-                            format!("⚫  {} mins", mins)
-                        } else if mins < 120 {
-                            "⚫  1 hr".into()
-                        } else if mins < 1440 {
-                            format!("⚫  {} hrs", mins / 60)
-                        } else if mins < 2880 {
-                            "⚫  1 day".into()
-                        } else {
-                            format!("⚫  {} days", mins / 1440)
-                        };
-                        ui.label(when);
+                ui.label(egui::RichText::new(&story.title).heading().strong());
+                ui.horizontal(|ui| {
+                    let space = -10.;
+                    ui.label(format!("{} points", story.score));
+                    ui.add_space(space);
+                    ui.label("⚫");
+                    ui.add_space(space);
+                    ui.hyperlink_to(url.domain().unwrap_or(url.as_str()), url.as_str());
+                    ui.add_space(space);
+                    ui.label("⚫");
+                    ui.add_space(space);
+
+                    let mins = (SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .expect("Time Travel")
+                        .as_secs()
+                        - story.time)
+                        / 60;
+                    ui.label(match mins {
+                        0 => "just now".into(),
+                        1 => "1 min".into(),
+                        2..=59 => format!("{} mins", mins),
+                        60..=119 => "1 hr".into(),
+                        120..=1439 => format!("{} hrs", mins / 60),
+                        1440..=2879 => "1 day".into(),
+                        _ => format!("{} days", mins / 1440),
                     });
-                }
-                Err(_) => {
-                    self.story_promise = Self::new(self.id, ctx).story_promise;
-                }
+                    ui.add_space(space);
+                    ui.label("⚫");
+                    ui.add_space(space);
+                    ui.hyperlink_to(format!("{} comments", story.descendants.unwrap_or(0)), hn);
+                });
+            } else {
+                self.story_promise = Self::new(self.id, ctx).story_promise;
             }
         } else {
             ui.vertical_centered(|ui| {
