@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use eframe::{egui, epaint::Color32};
+use eframe::egui;
 use poll_promise::Promise;
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ enum Catagory {
 
 impl std::fmt::Display for Catagory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -41,8 +41,7 @@ impl Card {
         let ctx = ctx.clone();
         let (sender, story_promise) = Promise::new();
         let request = ehttp::Request::get(format!(
-            "https://hacker-news.firebaseio.com/v0/item/{}.json",
-            id
+            "https://hacker-news.firebaseio.com/v0/item/{id}.json"
         ));
         ehttp::fetch(request, move |response| {
             ctx.request_repaint(); // wake up UI thread
