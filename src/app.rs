@@ -62,38 +62,43 @@ impl Card {
                     None => hn.clone(),
                 };
                 let url = url::Url::parse(&url).unwrap();
+                ui.vertical(|ui| {
+                    ui.label(egui::RichText::new(&story.title).heading().strong());
+                    ui.horizontal_wrapped(|ui| {
+                        let space = -10.;
+                        ui.hyperlink_to(url.host_str().unwrap_or(url.as_str()), url.as_str());
+                        ui.add_space(space);
+                        ui.label("⚫");
+                        ui.add_space(space);
+                        ui.label(format!("{} points", story.score));
+                        ui.add_space(space);
+                        ui.label("⚫");
+                        ui.add_space(space);
+                        ui.label(&story.by);
+                        ui.add_space(space);
+                        ui.label("⚫");
+                        ui.add_space(space);
 
-                ui.label(egui::RichText::new(&story.title).heading().strong());
-                ui.horizontal(|ui| {
-                    let space = -10.;
-                    ui.label(format!("{} points", story.score));
-                    ui.add_space(space);
-                    ui.label("⚫");
-                    ui.add_space(space);
-                    ui.hyperlink_to(url.domain().unwrap_or(url.as_str()), url.as_str());
-                    ui.add_space(space);
-                    ui.label("⚫");
-                    ui.add_space(space);
-
-                    let mins = (SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .expect("Time Travel")
-                        .as_secs()
-                        - story.time)
-                        / 60;
-                    ui.label(match mins {
-                        0 => "just now".into(),
-                        1 => "1 min".into(),
-                        2..=59 => format!("{} mins", mins),
-                        60..=119 => "1 hr".into(),
-                        120..=1439 => format!("{} hrs", mins / 60),
-                        1440..=2879 => "1 day".into(),
-                        _ => format!("{} days", mins / 1440),
+                        let mins = (SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .expect("Time Travel")
+                            .as_secs()
+                            - story.time)
+                            / 60;
+                        ui.label(match mins {
+                            0 => "just now".into(),
+                            1 => "1 min".into(),
+                            2..=59 => format!("{} mins", mins),
+                            60..=119 => "1 hr".into(),
+                            120..=1439 => format!("{} hrs", mins / 60),
+                            1440..=2879 => "1 day".into(),
+                            _ => format!("{} days", mins / 1440),
+                        });
+                        ui.add_space(space);
+                        ui.label("⚫");
+                        ui.add_space(space);
+                        ui.hyperlink_to(format!("{} comments", story.descendants.unwrap_or(0)), hn);
                     });
-                    ui.add_space(space);
-                    ui.label("⚫");
-                    ui.add_space(space);
-                    ui.hyperlink_to(format!("{} comments", story.descendants.unwrap_or(0)), hn);
                 });
             } else {
                 self.story_promise = Self::new(self.id, ctx).story_promise;
@@ -139,23 +144,24 @@ impl eframe::App for MainApp {
             ui.horizontal_wrapped(|ui| {
                 egui::widgets::global_dark_light_mode_switch(ui);
                 ui.separator();
-                if ui.button("↺").clicked() || self.stories_promise.is_none() {
+                if ui.add(egui::Button::new("↺").frame(false)).clicked()
+                    || self.stories_promise.is_none()
+                {
                     self.refresh_stories(ctx);
                 }
                 ui.separator();
                 egui::containers::ComboBox::from_id_source("select story list")
                     .selected_text(self.category.to_string() + " Stories")
                     .show_ui(ui, |ui| {
-                        let options = [Catagory::Top, Catagory::New, Catagory::Best];
                         let mut changed = false;
-                        for option in options {
+                        for option in [Catagory::Top, Catagory::New, Catagory::Best] {
                             changed |= ui
                                 .selectable_value(
                                     &mut self.category,
                                     option,
                                     option.to_string() + " Stories",
                                 )
-                                .changed()
+                                .changed();
                         }
                         if changed {
                             self.refresh_stories(ctx)
@@ -192,9 +198,20 @@ impl MainApp {
                     .auto_shrink([false; 2])
                     .show(ui, |ui| match result {
                         Ok(deck) => {
-                            for card in deck {
-                                card.draw(ui, ctx);
-                            }
+                            egui::Grid::new("Body")
+                                .num_columns(2)
+                                .striped(true)
+                                .spacing([0., 0.])
+                                // .min_col_width(1.)
+                                .show(ui, |ui| {
+                                    for (i, card) in deck.iter_mut().enumerate() {
+                                        ui.vertical(|ui| {
+                                            ui.label(format!("{}. ", i + 1));
+                                        });
+                                        card.draw(ui, ctx);
+                                        ui.end_row();
+                                    }
+                                });
                         }
                         Err(e) => {
                             ui.label("↺\tRefresh to retry...");
