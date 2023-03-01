@@ -2,7 +2,7 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "hackernews_rs",
         eframe::NativeOptions {
-            initial_window_size: Some([420., 600.].into()),
+            initial_window_size: Some([500., 720.].into()),
             min_window_size: Some([240., 24.].into()),
             transparent: true,
             centered: true,

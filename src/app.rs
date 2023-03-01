@@ -99,6 +99,7 @@ impl Card {
                         ui.add_space(space);
                         ui.hyperlink_to(format!("{} comments", story.descendants.unwrap_or(0)), hn);
                     });
+                    ui.separator();
                 });
             } else {
                 self.story_promise = Self::new(self.id, ctx).story_promise;
@@ -108,7 +109,6 @@ impl Card {
                 ui.spinner();
             });
         }
-        ui.separator();
     }
 
     fn cards_from_response(response: ehttp::Response, ctx: &egui::Context) -> Vec<Self> {
@@ -200,12 +200,12 @@ impl MainApp {
                         Ok(deck) => {
                             egui::Grid::new("Body")
                                 .num_columns(2)
-                                .striped(true)
-                                .spacing([0., 0.])
-                                // .min_col_width(1.)
+                                // .spacing([0., 10.])
+                                .min_col_width(30.)
                                 .show(ui, |ui| {
                                     for (i, card) in deck.iter_mut().enumerate() {
-                                        ui.vertical(|ui| {
+                                        ui.vertical_centered(|ui| {
+                                            ui.add_space(5.);
                                             ui.label(format!("{}. ", i + 1));
                                         });
                                         card.draw(ui, ctx);
